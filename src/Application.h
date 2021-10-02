@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 
 #include "glm/glm.hpp"
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <iostream>
 #include <filesystem>
@@ -52,8 +53,20 @@ private:
     void render();
     void update();
     void terminate();
+
+    void initBuffers();
     //first triangle ids
     //uint32_t m_vao, m_vbo, m_ebo;
+
+    //cloth buffer ids
+    uint32_t m_posbufs[2];
+    uint32_t m_velbufs[2];
+    uint32_t m_nornBuf, m_elBuf, m_tcBuf;
+    uint32_t m_clothVao;
+    uint32_t m_numelements;
+    //cloth attributes
+    glm::vec2 m_clothsize = glm::vec2(4.0f, 3.0f);
+    glm::ivec2 m_numParticles = glm::ivec2(40, 40);
 
     //window
     GLFWwindow* m_window = nullptr;

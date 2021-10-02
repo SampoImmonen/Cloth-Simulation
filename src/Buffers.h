@@ -69,7 +69,3 @@ private:
     IndexBuffer m_ebo;
     uint32_t m_vao;
 };
-
-class StorageBuffer{
-
-};
