@@ -89,12 +89,19 @@ void Application::init(){
     m_computeShaders.push_back(ClothPositionShader);
     initBuffers();
 
-
     float dx = m_clothsize.x/(m_numParticles.x-1);
     float dy = m_clothsize.y/(m_numParticles.y-1);
     m_computeShaders[0].setUniform1f("RestLengthHoriz", dx);
     m_computeShaders[0].setUniform1f("RestLengthVert", dy);
     m_computeShaders[0].setUniform1f("RestLengthDiag", sqrt(dx*dx+dy*dy));
+
+
+    //imgui
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui_ImplGlfw_InitForOpenGL(m_window, true);
+	ImGui_ImplOpenGL3_Init("#version 430");
+    ImGui::StyleColorsDark();
 }
 
 void Application::update(){
@@ -221,6 +228,19 @@ void Application::render(){
     m_shaders[0].setUniformMat4f("projection", projection);
     m_vao.drawElements();
     //glBindVertexArray(0);
+
+    //render imgui
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::Begin("Demo window");
+    ImGui::Button("Hello!");
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
     glfwSwapBuffers(m_window);
     glfwPollEvents();
 }
@@ -283,4 +303,7 @@ void Application::processInput(GLFWwindow* window)
 
 void Application::terminate(){
     glfwTerminate();
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 }

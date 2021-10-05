@@ -13,6 +13,9 @@
 #include "Shader.h"
 #include "Camera.h"
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
 struct FpsInfo {
 	float deltatime = 0;
