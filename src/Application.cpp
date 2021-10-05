@@ -84,14 +84,35 @@ void Application::init(){
     Shader clothRender(workindir+"ClothRender.vert", workindir+"ClothRender.frag");
     m_shaders.push_back(clothRender);
 
+    //compute shaders
+    Shader ClothPositionShader(workindir+"ClothCompute.comp");
+    m_computeShaders.push_back(ClothPositionShader);
     initBuffers();
+
+
+    float dx = m_clothsize.x/(m_numParticles.x-1);
+    float dy = m_clothsize.y/(m_numParticles.y-1);
+    m_computeShaders[0].setUniform1f("RestLengthHoriz", dx);
+    m_computeShaders[0].setUniform1f("RestLengthVert", dy);
+    m_computeShaders[0].setUniform1f("RestLengthDiag", sqrt(dx*dx+dy*dy));
 }
 
 void Application::update(){
 
-    //update positions and velocities
+    //set compute shader uniforms
+    m_computeShaders[0].UseProgram();
+    for (int i = 0; i<2000; ++i){
+        glDispatchCompute(m_numParticles.x/10, m_numParticles.y/10, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
+        m_readBuf =  1 - m_readBuf;
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_posbufs[m_readBuf]);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_posbufs[1-m_readBuf]);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_velbufs[m_readBuf]);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_velbufs[1-m_readBuf]);
 
+    }
+    //update positions
 }
 
 void Application::initBuffers(){
@@ -179,7 +200,7 @@ void Application::render(){
     processInput(m_window);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+    glEnable(GL_DEPTH_TEST);
     glm::mat4 view = m_camera.GetViewMatrix();
     glm::mat4 projection = glm::perspective(glm::radians(m_camera.Zoom), (float)m_width / m_height, 0.1f, 100.0f);
 

@@ -16,6 +16,7 @@ public:
 
 	Shader(const std::string& vpath, const std::string& fpath);
 	Shader(const std::string& vpath, const std::string& fpath, const std::string& gpath);
+	Shader(const std::string& cpath);
 
 	~Shader();
 	
@@ -35,10 +36,12 @@ private:
 	std::string vertexPath = "";
 	std::string fragmentPath = "";
 	std::string geometryPath= "";
+	std::string computePath = "";
 
 	unsigned int VertexShader;
 	unsigned int FragmentShader;
 	unsigned int GeometryShader;
+	unsigned int ComputeShader;
 
 	unsigned int program;
 };

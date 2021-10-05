@@ -58,6 +58,8 @@ private:
     //first triangle ids
     //uint32_t m_vao, m_vbo, m_ebo;
 
+
+    uint32_t m_readBuf = 0;
     //cloth buffer ids
     uint32_t m_posbufs[2];
     uint32_t m_velbufs[2];
@@ -74,11 +76,16 @@ private:
 
     VertexArray m_vao;
     std::vector<Shader> m_shaders;
+    std::vector<Shader> m_computeShaders;
 
     Camera m_camera;
 
     FpsInfo m_fpsinfo;
     MouseInfo m_mouseinfo;
+
+    //physics attributes
+    float m_stiffness = 0.0001;
+    float m_dampingConstant = 0.0001;
 
     void mouseCallback(GLFWwindow* window, double xpos, double ypos);
     void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);

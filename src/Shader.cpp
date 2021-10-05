@@ -16,6 +16,41 @@ Shader::Shader(const std::string& vpath, const std::string& fpath, const std::st
 	compileShaders();
 }
 
+Shader::Shader(const std::string& cpath){
+	computePath = cpath;
+	
+	std::string csource = readfromFile(computePath);
+	const char* csourcep = csource.c_str();
+	std::cout << "\n---------------------------------\n";
+	std::cout << "compiling shader:" << computePath << "\n";
+	ComputeShader = glCreateShader(GL_COMPUTE_SHADER);
+	glShaderSource(ComputeShader, 1, &csourcep, NULL);
+	glCompileShader(ComputeShader);
+	int  success;
+	char infoLog[512];
+	glGetShaderiv(ComputeShader, GL_COMPILE_STATUS, &success);
+
+	if (!success)
+	{
+		glGetShaderInfoLog(ComputeShader, 512, NULL, infoLog);
+		std::cout << "ERROR::SHADER::COMPUTE::COMPILATION_FAILED\n" << infoLog << std::endl;
+	}
+
+	program = glCreateProgram();
+	glAttachShader(program, ComputeShader);
+	
+	glLinkProgram(program);
+
+	glGetProgramiv(program, GL_LINK_STATUS, &success);
+	if (!success) {
+		glGetProgramInfoLog(program, 512, NULL, infoLog);
+		std::cout << "ERROR::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
+	}
+
+	glDeleteShader(ComputeShader);
+
+}
+
 Shader::~Shader()
 {
 }
