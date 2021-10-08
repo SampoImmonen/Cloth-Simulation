@@ -11,6 +11,7 @@ uniform float RestLengthVert;
 uniform float RestLengthDiag;
 uniform float DeltaT = 0.000005;
 uniform float DampingConst = 0.1;
+uniform bool hasWind;
 
 layout(std430, binding=0) buffer PosIn {
   vec4 PositionIn[];
@@ -80,7 +81,9 @@ void main() {
   }
 
   force += -DampingConst * v;
-
+  if (hasWind){
+      force+=vec3(0,0,5);
+  }
   // Apply simple Euler integrator
   vec3 a = force * ParticleInvMass;
   PositionOut[idx] = vec4(

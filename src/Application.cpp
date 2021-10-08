@@ -77,6 +77,7 @@ void Application::init(){
     m_vao = VertexArray(vbo, ebo);
 
     auto basepath = std::filesystem::current_path();
+    auto texturedir = basepath.parent_path().string()+"/textures/";
     auto workindir = basepath.parent_path().string()+"/src/";
     //std::cout << workindir << "\n";
     Shader shader(workindir+"basicshader.vert", workindir+"basicshader.frag");
@@ -87,6 +88,10 @@ void Application::init(){
     //compute shaders
     Shader ClothPositionShader(workindir+"ClothCompute.comp");
     m_computeShaders.push_back(ClothPositionShader);
+    Shader ClothNormalShader(workindir+"ClothNormals.comp");
+    m_computeShaders.push_back(ClothNormalShader);
+    
+    //init buffers
     initBuffers();
 
     float dx = m_clothsize.x/(m_numParticles.x-1);
@@ -95,7 +100,10 @@ void Application::init(){
     m_computeShaders[0].setUniform1f("RestLengthVert", dy);
     m_computeShaders[0].setUniform1f("RestLengthDiag", sqrt(dx*dx+dy*dy));
 
+    glPointSize(2.0f);
 
+    m_clothMaterial.m_texture = std::make_unique<Texture2D>(Texture2D(texturedir+"texture.jpg"));
+    m_clothtexture = Texture2D(texturedir+"texture.jpg");
     //imgui
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -108,6 +116,13 @@ void Application::update(){
 
     //set compute shader uniforms
     m_computeShaders[0].UseProgram();
+
+    //update controllable uniforms
+    m_computeShaders[0].setUniform1f("SpringK", m_stiffness);
+    m_computeShaders[0].setUniform1f("DampingConst", m_dampingConstant);
+    m_computeShaders[0].setUniformVec3("Gravity", m_gravity);
+    m_computeShaders[0].setUniformInt("hasWind", m_hasWind);
+
     for (int i = 0; i<2000; ++i){
         glDispatchCompute(m_numParticles.x/10, m_numParticles.y/10, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -120,6 +135,9 @@ void Application::update(){
 
     }
     //update positions
+    m_computeShaders[1].UseProgram();
+    glDispatchCompute(m_numParticles.x/10, m_numParticles.y/10, 1);
+    glMemoryBarrier( GL_SHADER_STORAGE_BARRIER_BIT );
 }
 
 void Application::initBuffers(){
@@ -131,14 +149,16 @@ void Application::initBuffers(){
     
     //create data vectors
     std::vector<glm::vec4> initial_positions;
-    std::vector<glm::vec4> initial_velocities(m_numParticles.x*m_numParticles.y*4, glm::vec4(0.0f));
-
+    std::vector<glm::vec4> initial_velocities(m_numParticles.x*m_numParticles.y, glm::vec4(0.0f));
+    std::vector<glm::vec2> tx_coordinates;
     float dx = m_clothsize.x/(m_numParticles.x-1);
     float dy = m_clothsize.y/(m_numParticles.y-1);
-    
+    float du = 1.0f/(m_numParticles.x-1);
+    float dv = 1.0f/(m_numParticles.y-1);
+
     glm::vec4 p(0.0f, 0.0f, 0.0f, 1.0f);
-    for (int i = 0; i < m_numParticles.x ; ++i){
-        for (int j = 0; j < m_numParticles.y; ++j){
+    for (int i = 0; i < m_numParticles.y ; ++i){
+        for (int j = 0; j < m_numParticles.x; ++j){
             
             p.x = j*dx;
             p.y = i*dy;
@@ -147,17 +167,29 @@ void Application::initBuffers(){
             p.w = 1.0f;
             initial_positions.push_back(p);
 
+            tx_coordinates.push_back(glm::vec2(du*j, dv*i));
         }
     }
 
-    // Every row is one triangle strip
+    //create indices for drawing
+    //square in the grid is composed of two triangles
     std::vector<uint32_t> indices;
-    for (int row = 0; row < m_numParticles.y-1 ; ++row){
-        for (int col = 0; col < m_numParticles.x; ++col){
-            indices.push_back((row+1)*m_numParticles.x+(col ));
-            indices.push_back((row )*m_numParticles.x+(col ));
+    for (int row = 0; row < m_numParticles.y-1; ++row){
+        for (int col = 0; col < m_numParticles.x-1; ++col){
+                        
+            uint32_t row1 = row*m_numParticles.x;
+            uint32_t row2 = (row+1)*m_numParticles.x;
+            
+            //triangle 1
+            indices.push_back(row1+col);
+            indices.push_back(row1+col+1);
+            indices.push_back(row2+col+1);
+
+            //triangle 2
+            indices.push_back(row1+col);
+            indices.push_back(row2+col+1);
+            indices.push_back(row2+col);
         }
-        indices.push_back(PRIM_RESTART);
     }
 
     //create storage buffers
@@ -168,6 +200,8 @@ void Application::initBuffers(){
     m_velbufs[0] = buffers[2];
     m_velbufs[1] = buffers[3];
     m_elBuf = buffers[4];
+    m_normBuf = buffers[5];
+    m_tcBuf = buffers[6];
 
 
     uint32_t numParticles = m_numParticles.x*m_numParticles.y;
@@ -184,11 +218,19 @@ void Application::initBuffers(){
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_velbufs[1]);
     glBufferData(GL_SHADER_STORAGE_BUFFER, numParticles*sizeof(glm::vec4), NULL, GL_DYNAMIC_COPY);
 
+    //normal buffers
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_normBuf);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, numParticles * 4 * sizeof(GLfloat), NULL, GL_DYNAMIC_COPY);
+
     //index buffer
     glBindBuffer(GL_ARRAY_BUFFER, m_elBuf);
     glBufferData(GL_ARRAY_BUFFER, indices.size() * sizeof(uint32_t), &indices[0], GL_DYNAMIC_COPY);
 
-    m_numelements = static_cast<uint32_t>(indices.size());
+    glBindBuffer(GL_ARRAY_BUFFER, m_tcBuf);
+    glBufferData(GL_ARRAY_BUFFER, tx_coordinates.size() * sizeof(glm::vec2), &tx_coordinates[0], GL_STATIC_DRAW);
+
+    m_numelements = indices.size();
+    std::cout << "Num of Elements: " << m_numelements << "\n";
     //create vertex array
 
     glGenVertexArrays(1, &m_clothVao);
@@ -198,11 +240,22 @@ void Application::initBuffers(){
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
     
+    glBindBuffer(GL_ARRAY_BUFFER, m_normBuf);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_tcBuf);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(2);
+
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_elBuf);
     glBindVertexArray(0);
 }
 
 void Application::render(){
+
+    m_light.setUniforms(m_shaders[1]);
+    m_shaders[1].setUniformVec3("viewPos", m_camera.Position);
 
     processInput(m_window);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -211,22 +264,33 @@ void Application::render(){
     glm::mat4 view = m_camera.GetViewMatrix();
     glm::mat4 projection = glm::perspective(glm::radians(m_camera.Zoom), (float)m_width / m_height, 0.1f, 100.0f);
 
-
     //render cloth
-
     m_shaders[1].UseProgram();
-    m_shaders[0].setUniformMat4f("view", view);
-    m_shaders[0].setUniformMat4f("projection", projection);
+    setMaterialUniforms();
+    m_shaders[1].setUniformMat4f("view", view);
+    m_shaders[1].setUniformMat4f("projection", projection);
+    m_shaders[1].setUniformMat4f("model", glm::mat4(1.0f));
+    m_shaders[1].setUniformInt("Tex", 0);
+    m_clothtexture.bind(0);
     glBindVertexArray(m_clothVao);
-    glDrawArrays(GL_POINTS, 0, m_numParticles.x*m_numParticles.y);
-    //glDrawElements(GL_TRIANGLE_STRIP, m_numelements, GL_UNSIGNED_INT, 0);
+    
+    if (m_renderpoints){
+        m_shaders[1].setUniformVec3("colordebug", glm::vec3(0.3f, 1.0f, 0.0f));
+        glDrawArrays(GL_POINTS, 0, m_numParticles.x*m_numParticles.y);
+    }
+    else{
+        m_shaders[1].setUniformVec3("colordebug", glm::vec3(0.0f, 0.0f, 0.0f));
+        glDrawElements(GL_TRIANGLES, m_numelements, GL_UNSIGNED_INT, 0);
+    }
+    
+
     glBindVertexArray(0);
     
 
     m_shaders[0].UseProgram();
     m_shaders[0].setUniformMat4f("view", view);
     m_shaders[0].setUniformMat4f("projection", projection);
-    m_vao.drawElements();
+    //m_vao.drawElements();
     //glBindVertexArray(0);
 
     //render imgui
@@ -235,9 +299,14 @@ void Application::render(){
     ImGui::NewFrame();
 
     ImGui::Begin("Demo window");
-    ImGui::Button("Hello!");
+    ImGui::InputFloat("stiffness", &m_stiffness);
+    ImGui::InputFloat("flow resistance", &m_dampingConstant);
+    ImGui::InputFloat3("Gravity", &m_gravity[0]);
+    ImGui::Checkbox("render points", &m_renderpoints);
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    m_light.ImGuiControls();
     ImGui::End();
-
+    
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -298,8 +367,31 @@ void Application::processInput(GLFWwindow* window)
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
 		m_camera.ProcessKeyboard(BACKWARD, m_fpsinfo.deltatime);
 	}
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+		m_hasWind = true;
+	}
+    if (glfwGetKey(window, GLFW_KEY_F) != GLFW_PRESS) {
+		m_hasWind = false;
+	}
+    
 }
 
+
+void Application::setMaterialUniforms(){
+    m_shaders[1].setUniformVec3("material.albedo", m_clothMaterial.albedo);
+    m_shaders[1].setUniform1f("material.metallic", m_clothMaterial.metallic);
+    m_shaders[1].setUniform1f("material.roughness", m_clothMaterial.roughness);
+    m_shaders[1].setUniform1f("material.ao", m_clothMaterial.ao);
+
+    bool hasTexture = (m_clothMaterial.m_texture != nullptr);
+    //currently only supports albedo textures
+    m_shaders[1].setUniformInt("material.hasAlbedo", hasTexture);
+    if (hasTexture){
+        m_shaders[1].setUniformInt("material.albedoMap", 0);
+        m_clothtexture.bind(0);
+        m_clothMaterial.m_texture->bind(0);
+    }
+}
 
 void Application::terminate(){
     glfwTerminate();

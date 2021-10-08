@@ -12,6 +12,8 @@
 #include "Buffers.h"
 #include "Shader.h"
 #include "Camera.h"
+#include "Texture2D.h"
+#include "Shading.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -58,6 +60,7 @@ private:
     void terminate();
 
     void initBuffers();
+    void setMaterialUniforms();
     //first triangle ids
     //uint32_t m_vao, m_vbo, m_ebo;
 
@@ -66,12 +69,15 @@ private:
     //cloth buffer ids
     uint32_t m_posbufs[2];
     uint32_t m_velbufs[2];
-    uint32_t m_nornBuf, m_elBuf, m_tcBuf;
+    uint32_t m_normBuf, m_elBuf, m_tcBuf;
     uint32_t m_clothVao;
     uint32_t m_numelements;
     //cloth attributes
     glm::vec2 m_clothsize = glm::vec2(4.0f, 3.0f);
     glm::ivec2 m_numParticles = glm::ivec2(40, 40);
+    Material m_clothMaterial;
+
+    DirLight m_light;
 
     //window
     GLFWwindow* m_window = nullptr;
@@ -86,9 +92,13 @@ private:
     FpsInfo m_fpsinfo;
     MouseInfo m_mouseinfo;
 
+    Texture2D m_clothtexture;
     //physics attributes
-    float m_stiffness = 0.0001;
-    float m_dampingConstant = 0.0001;
+    float m_stiffness = 2000;
+    float m_dampingConstant = 0.1;
+    glm::vec3 m_gravity = glm::vec3(0.0f, -9.81f, 0.0f);
+    bool m_hasWind = false;
+    bool m_renderpoints = false;
 
     void mouseCallback(GLFWwindow* window, double xpos, double ypos);
     void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
