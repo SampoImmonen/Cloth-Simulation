@@ -6,6 +6,7 @@
 #include "glm/glm.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include "Shader.h"
+#include "Buffers.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -23,14 +24,20 @@ struct Material {
 class DirLight {
 public:
     DirLight() = default;
+    DirLight(const glm::vec3& dir);
     void setUniforms(Shader& shader);
     void ImGuiControls();
+    glm::mat4 getLightSpaceMatrix();
+    void prepareShadowMap(Shader& shader);
 
 private:
     glm::vec3 m_direction = glm::vec3(0.0f, 1.0f, 1.0f);
     glm::vec3 m_intensity = glm::vec3(10.0f);
 
     //shadow parameters
-    float m_size = 0.5f;
-    //ShadowMapBuffer m_shadowMap;
+    float m_scale = 1.0f;
+    float m_size = 0.005f;
+    bool m_shadows = true;
+
+    ShadowMapBuffer m_shadowMap;
 };

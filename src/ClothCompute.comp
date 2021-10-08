@@ -12,6 +12,8 @@ uniform float RestLengthDiag;
 uniform float DeltaT = 0.000005;
 uniform float DampingConst = 0.1;
 uniform bool hasWind;
+uniform bool hasFlex;
+uniform bool hasShear;
 
 layout(std430, binding=0) buffer PosIn {
   vec4 PositionIn[];
@@ -58,6 +60,7 @@ void main() {
     force += normalize(r) * SpringK * (length(r) - RestLengthHoriz);
   }
 
+  if (hasShear){
   // Diagonals
   // Upper-left
   if( gl_GlobalInvocationID.x > 0 && gl_GlobalInvocationID.y < nParticles.y - 1 ) {
@@ -78,6 +81,34 @@ void main() {
   if( gl_GlobalInvocationID.x < nParticles.x - 1 && gl_GlobalInvocationID.y > 0 ) {
     r = PositionIn[idx - nParticles.x + 1].xyz - p;
     force += normalize(r) * SpringK * (length(r) - RestLengthDiag);
+  }
+  }
+
+  if (hasFlex){
+  //flex springs
+  //above
+  if( gl_GlobalInvocationID.y < nParticles.y - 2 ) {
+    r = PositionIn[idx + 2*nParticles.x].xyz - p;
+    force += normalize(r) * SpringK * (length(r) - 2.0f*RestLengthVert);
+  } 
+
+  //below
+  if( gl_GlobalInvocationID.y > 1) {
+    r = PositionIn[idx - 2*nParticles.x].xyz - p;
+    force += normalize(r) * SpringK * (length(r) - 2.0f*RestLengthVert);
+  } 
+
+  //right
+  if( gl_GlobalInvocationID.x < nParticles.x - 2 ) {
+    r = PositionIn[idx + 2].xyz - p;
+    force += normalize(r) * SpringK * (length(r) - 2.0f*RestLengthHoriz);
+  }
+
+  //left
+  if( gl_GlobalInvocationID.x > 1 ) {
+    r = PositionIn[idx - 2].xyz - p;
+    force += normalize(r) * SpringK * (length(r) - 2.0f*RestLengthHoriz);
+  }
   }
 
   force += -DampingConst * v;

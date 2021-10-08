@@ -1,8 +1,6 @@
 #include "Application.h"
 
 
-#define PRIM_RESTART 0xffffff
-
 //GLFW wrapper function hack
 void Application::GLFWCallbackWrapper::MouseCallback(GLFWwindow* window, double positionX, double positionY)
 {
@@ -28,10 +26,10 @@ Application* Application::GLFWCallbackWrapper::s_application = nullptr;
 
 
 const std::vector<Vertex> tri_vertices = {
-    {glm::vec3(-1.0f, 0.0f, 1.0f), glm::vec3(1.0f)},
-    {glm::vec3(-1.0f, 0.0f, -1.0f), glm::vec3(0.0f, 0.0f, 1.0f)},
-    {glm::vec3(1.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.3f, 0.7f)},
-    {glm::vec3(1.0f, 0.0f, -1.0f), glm::vec3(0.0f, 0.3f, 0.7f)},
+    {glm::vec3(-5.0f, -1.0f, 5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 1.0f)},
+    {glm::vec3(-5.0f, -1.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(1.0f, 1.0f)},
+    {glm::vec3(5.0f, -1.0f, 5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f)},
+    {glm::vec3(5.0f, -1.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(1.0f, 0.0f)},
 };
 
 const std::vector<uint32_t> tri_indices = {
@@ -84,6 +82,8 @@ void Application::init(){
     m_shaders.push_back(shader);
     Shader clothRender(workindir+"ClothRender.vert", workindir+"ClothRender.frag");
     m_shaders.push_back(clothRender);
+    Shader ShadowMapShader(workindir+"ShadowDepthShader.vert", workindir+"ShadowDepthShader.frag");
+    m_shaders.push_back(ShadowMapShader);
 
     //compute shaders
     Shader ClothPositionShader(workindir+"ClothCompute.comp");
@@ -101,6 +101,8 @@ void Application::init(){
     m_computeShaders[0].setUniform1f("RestLengthDiag", sqrt(dx*dx+dy*dy));
 
     glPointSize(2.0f);
+
+    m_light = DirLight(glm::vec3(1.0f));
 
     m_clothMaterial.m_texture = std::make_unique<Texture2D>(Texture2D(texturedir+"texture.jpg"));
     m_clothtexture = Texture2D(texturedir+"texture.jpg");
@@ -122,6 +124,8 @@ void Application::update(){
     m_computeShaders[0].setUniform1f("DampingConst", m_dampingConstant);
     m_computeShaders[0].setUniformVec3("Gravity", m_gravity);
     m_computeShaders[0].setUniformInt("hasWind", m_hasWind);
+    m_computeShaders[0].setUniformInt("hasShear", m_hasShear);
+    m_computeShaders[0].setUniformInt("hasFlex", m_hasFlex);
 
     for (int i = 0; i<2000; ++i){
         glDispatchCompute(m_numParticles.x/10, m_numParticles.y/10, 1);
@@ -254,6 +258,8 @@ void Application::initBuffers(){
 
 void Application::render(){
 
+    updateShadowMap();
+    glViewport(0, 0, m_width, m_height);
     m_light.setUniforms(m_shaders[1]);
     m_shaders[1].setUniformVec3("viewPos", m_camera.Position);
 
@@ -266,7 +272,7 @@ void Application::render(){
 
     //render cloth
     m_shaders[1].UseProgram();
-    setMaterialUniforms();
+    setMaterialUniforms(m_clothMaterial);
     m_shaders[1].setUniformMat4f("view", view);
     m_shaders[1].setUniformMat4f("projection", projection);
     m_shaders[1].setUniformMat4f("model", glm::mat4(1.0f));
@@ -286,11 +292,9 @@ void Application::render(){
 
     glBindVertexArray(0);
     
-
-    m_shaders[0].UseProgram();
-    m_shaders[0].setUniformMat4f("view", view);
-    m_shaders[0].setUniformMat4f("projection", projection);
-    //m_vao.drawElements();
+    m_shaders[1].setUniformMat4f("lightSpaceMatrix", m_light.getLightSpaceMatrix());
+    setMaterialUniforms(m_planeMaterial);
+    m_vao.drawElements();
     //glBindVertexArray(0);
 
     //render imgui
@@ -303,10 +307,13 @@ void Application::render(){
     ImGui::InputFloat("flow resistance", &m_dampingConstant);
     ImGui::InputFloat3("Gravity", &m_gravity[0]);
     ImGui::Checkbox("render points", &m_renderpoints);
+    ImGui::Checkbox("Shear Springs", &m_hasShear);
+    ImGui::Checkbox("Flex Springs", &m_hasFlex);
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
     m_light.ImGuiControls();
+    clothMaterialUI();
     ImGui::End();
-    
+
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -321,6 +328,15 @@ void Application::run(){
 		update();
 		render();
 	}
+}
+
+void Application::reloadShader(){
+    auto basepath = std::filesystem::current_path();
+    auto texturedir = basepath.parent_path().string()+"/textures/";
+    auto workindir = basepath.parent_path().string()+"/src/";
+    //std::cout << workindir << "\n";
+    Shader clothRender(workindir+"ClothRender.vert", workindir+"ClothRender.frag");
+    m_shaders[1] = clothRender;
 }
 
 void Application::mouseCallback(GLFWwindow* window, double xpos, double ypos)
@@ -348,8 +364,6 @@ void Application::framebufferSizeCallback(GLFWwindow* window, int width, int hei
     glViewport(0, 0, width, height);
 }
 
-
-
 void Application::processInput(GLFWwindow* window)
 {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
@@ -373,25 +387,54 @@ void Application::processInput(GLFWwindow* window)
     if (glfwGetKey(window, GLFW_KEY_F) != GLFW_PRESS) {
 		m_hasWind = false;
 	}
+    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
+		reloadShader();
+	}
     
 }
 
+void Application::updateShadowMap(){
+    glEnable(GL_DEPTH_TEST);
+    m_shaders[2].UseProgram();
+    m_light.prepareShadowMap(m_shaders[2]);
+    m_shaders[2].setUniformMat4f("model", glm::mat4(1.0f));
+    glBindVertexArray(m_clothVao);
+    glDrawElements(GL_TRIANGLES, m_numelements, GL_UNSIGNED_INT, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 
-void Application::setMaterialUniforms(){
-    m_shaders[1].setUniformVec3("material.albedo", m_clothMaterial.albedo);
-    m_shaders[1].setUniform1f("material.metallic", m_clothMaterial.metallic);
-    m_shaders[1].setUniform1f("material.roughness", m_clothMaterial.roughness);
-    m_shaders[1].setUniform1f("material.ao", m_clothMaterial.ao);
+void Application::setMaterialUniforms(const Material& material){
+    m_shaders[1].setUniformVec3("material.albedo", material.albedo);
+    m_shaders[1].setUniform1f("material.metallic", material.metallic);
+    m_shaders[1].setUniform1f("material.roughness", material.roughness);
+    m_shaders[1].setUniform1f("material.ao", material.ao);
 
-    bool hasTexture = (m_clothMaterial.m_texture != nullptr);
+    bool hasTexture = (material.m_texture != nullptr);
     //currently only supports albedo textures
     m_shaders[1].setUniformInt("material.hasAlbedo", hasTexture);
     if (hasTexture){
         m_shaders[1].setUniformInt("material.albedoMap", 0);
         m_clothtexture.bind(0);
-        m_clothMaterial.m_texture->bind(0);
+        //m_clothMaterial.m_texture->bind(0);
     }
 }
+
+void Application::clothMaterialUI(){
+    if (ImGui::CollapsingHeader("Cloth Material")){
+        ImGui::InputFloat3("cloth albedo", &m_clothMaterial.albedo[0]);
+        ImGui::InputFloat("cloth metallic", &m_clothMaterial.metallic);
+        ImGui::InputFloat("cloth roughness", &m_clothMaterial.roughness);
+        ImGui::InputFloat("cloth ao", &m_clothMaterial.ao);
+    }
+
+    if (ImGui::CollapsingHeader("Plane Material")){
+        ImGui::InputFloat3("plane albedo", &m_planeMaterial.albedo[0]);
+        ImGui::InputFloat("plane metallic", &m_planeMaterial.metallic);
+        ImGui::InputFloat("plane roughness", &m_planeMaterial.roughness);
+        ImGui::InputFloat("plane ao", &m_planeMaterial.ao);
+    }
+}
+
 
 void Application::terminate(){
     glfwTerminate();

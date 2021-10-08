@@ -57,10 +57,13 @@ private:
     void init();
     void render();
     void update();
+    void updateShadowMap();
     void terminate();
 
     void initBuffers();
-    void setMaterialUniforms();
+    void setMaterialUniforms(const Material& material);
+    void clothMaterialUI();
+    void reloadShader();
     //first triangle ids
     //uint32_t m_vao, m_vbo, m_ebo;
 
@@ -74,10 +77,13 @@ private:
     uint32_t m_numelements;
     //cloth attributes
     glm::vec2 m_clothsize = glm::vec2(4.0f, 3.0f);
-    glm::ivec2 m_numParticles = glm::ivec2(40, 40);
+    glm::ivec2 m_numParticles = glm::ivec2(20, 20);
     Material m_clothMaterial;
+    bool m_hasFlex = true, m_hasShear = true;
 
+    //environment
     DirLight m_light;
+    Material m_planeMaterial;
 
     //window
     GLFWwindow* m_window = nullptr;

@@ -7,9 +7,10 @@
 
 struct Vertex{
     glm::vec3 position;
-    glm::vec3 color = glm::vec3(0.3f);
+    glm::vec3 normal;
+    glm::vec2 texCoords;
 
-    Vertex(const glm::vec3& pos, const glm::vec3& col): position(pos), color(col){}
+    Vertex(const glm::vec3& pos, const glm::vec3& normal, const glm::vec2& tex): position(pos), normal(normal), texCoords(tex){}
 };
 
 class VertexBuffer{
@@ -68,4 +69,20 @@ private:
     VertexBuffer m_vbo;
     IndexBuffer m_ebo;
     uint32_t m_vao;
+};
+
+class ShadowMapBuffer {
+public:
+	ShadowMapBuffer() = default;
+	ShadowMapBuffer(unsigned int height, unsigned int width);
+	void bind();
+
+	void unbind();
+	void bindDepthTexture(int textureunit);
+	unsigned int* getTexture();
+
+private:
+	unsigned int m_width, m_height;
+	unsigned int m_framebufferId, m_depthmapId;
+	bool checkCompleteness();
 };
