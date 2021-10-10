@@ -84,7 +84,8 @@ void Application::init(){
     m_shaders.push_back(clothRender);
     Shader ShadowMapShader(workindir+"ShadowDepthShader.vert", workindir+"ShadowDepthShader.frag");
     m_shaders.push_back(ShadowMapShader);
-
+    Shader NormalVisualizationShader(workindir+"NormalShader.vert", workindir+"NormalShader.frag", workindir+"NormalShader.geo");
+    m_shaders.push_back(NormalVisualizationShader);
     //compute shaders
     Shader ClothPositionShader(workindir+"ClothCompute.comp");
     m_computeShaders.push_back(ClothPositionShader);
@@ -289,6 +290,15 @@ void Application::render(){
         glDrawElements(GL_TRIANGLES, m_numelements, GL_UNSIGNED_INT, 0);
     }
     
+    if (m_renderNormals){
+        m_shaders[3].UseProgram();
+        m_shaders[3].setUniformMat4f("model", glm::mat4(1.0f));
+        m_shaders[3].setUniformMat4f("view", view);
+        m_shaders[3].setUniformMat4f("projection", projection);
+
+        glBindVertexArray(m_clothVao);
+        glDrawElements(GL_TRIANGLES, m_numelements, GL_UNSIGNED_INT, 0);
+    }
 
     glBindVertexArray(0);
     
@@ -307,6 +317,7 @@ void Application::render(){
     ImGui::InputFloat("flow resistance", &m_dampingConstant);
     ImGui::InputFloat3("Gravity", &m_gravity[0]);
     ImGui::Checkbox("render points", &m_renderpoints);
+    ImGui::Checkbox("render normals", &m_renderNormals);
     ImGui::Checkbox("Shear Springs", &m_hasShear);
     ImGui::Checkbox("Flex Springs", &m_hasFlex);
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);

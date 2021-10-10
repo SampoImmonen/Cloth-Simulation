@@ -80,7 +80,6 @@ private:
     glm::ivec2 m_numParticles = glm::ivec2(20, 20);
     Material m_clothMaterial;
     bool m_hasFlex = true, m_hasShear = true;
-
     //environment
     DirLight m_light;
     Material m_planeMaterial;
@@ -105,6 +104,7 @@ private:
     glm::vec3 m_gravity = glm::vec3(0.0f, -9.81f, 0.0f);
     bool m_hasWind = false;
     bool m_renderpoints = false;
+    bool m_renderNormals = false;
 
     void mouseCallback(GLFWwindow* window, double xpos, double ypos);
     void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
