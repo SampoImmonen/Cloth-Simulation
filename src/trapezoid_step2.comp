@@ -9,36 +9,31 @@ uniform float SpringK = 500.0;
 uniform float RestLengthHoriz;
 uniform float RestLengthVert;
 uniform float RestLengthDiag;
-uniform float DeltaT = 0.000005;
+uniform float DeltaT = 0.00002;
 uniform float DampingConst = 0.1;
 uniform bool hasWind;
 uniform bool hasFlex;
 uniform bool hasShear;
 
-layout(std430, binding=0) buffer PosIn {
+layout(std430, binding=1) buffer PosIn {
   vec4 PositionIn[];
 };
-layout(std430, binding=1) buffer PosOut {
-  vec4 PositionOut[];
-};
-layout(std430, binding=2) buffer VelIn {
+
+layout(std430, binding=3) buffer VelIn {
   vec4 VelocityIn[];
 };
-layout(std430, binding=3) buffer VelOut {
-  vec4 VelocityOut[];
+
+layout(std430, binding=6) buffer kBuf2 {
+  vec4 kBuffer2[];
 };
 
-void main() {
-  uvec3 nParticles = gl_NumWorkGroups * gl_WorkGroupSize;
-  uint idx = gl_GlobalInvocationID.y * nParticles.x + gl_GlobalInvocationID.x;
-
-  vec3 p = vec3(PositionIn[idx]);
-  vec3 v = vec3(VelocityIn[idx]), r;
+vec3 CalculateForces(vec3 p, vec3 v, uvec3 nParticles, uint idx){
+  //calculate forces to kBuf1 from state
 
   // Start with gravitational acceleration and add the spring
   // forces from each neighbor
   vec3 force = Gravity * ParticleMass;
-
+  vec3 r;
   // Particle above
   if( gl_GlobalInvocationID.y < nParticles.y - 1 ) {
     r = PositionIn[idx + nParticles.x].xyz - p;
@@ -117,18 +112,17 @@ void main() {
   }
   // Apply simple Euler integrator
   vec3 a = force * ParticleInvMass;
-  PositionOut[idx] = vec4(
-      p + v * DeltaT, 1.0);
-  VelocityOut[idx] = vec4( v + a * DeltaT, 0.0);
+  return a;
+}
 
-  // Pin a few of the top verts
-  if( gl_GlobalInvocationID.y == nParticles.y - 1 && 
-      (gl_GlobalInvocationID.x == 0 || 
-       gl_GlobalInvocationID.x == nParticles.x / 4 ||
-       gl_GlobalInvocationID.x == nParticles.x * 2 / 4 ||
-       gl_GlobalInvocationID.x == nParticles.x * 3 / 4 ||
-       gl_GlobalInvocationID.x == nParticles.x - 1)) {
-    PositionOut[idx] = vec4(p,1.0);
-    VelocityOut[idx] = vec4(0,0,0,0);
-  }
+void main(){
+  
+  uvec3 nParticles = gl_NumWorkGroups * gl_WorkGroupSize;
+  uint idx = gl_GlobalInvocationID.y * nParticles.x + gl_GlobalInvocationID.x;
+
+  vec3 p = vec3(PositionIn[idx]);
+  vec3 v = vec3(VelocityIn[idx]);
+
+  vec3 a = CalculateForces(p, v, nParticles, idx);
+  kBuffer2[idx] = vec4(a, 0.0);
 }

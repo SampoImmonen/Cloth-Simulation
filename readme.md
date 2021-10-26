@@ -6,3 +6,8 @@
 1. Integrators for simulation (https://www.embeddedrelated.com/showarticle/474.php)
 2. OpenGL 4 Shading Language Cookbook (https://github.com/PacktPublishing/OpenGL-4-Shading-Language-Cookbook-Third-Edition
 )
+
+
+# TODO
+1. better integrator
+2. material system

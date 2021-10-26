@@ -9,7 +9,7 @@ uniform float SpringK = 500.0;
 uniform float RestLengthHoriz;
 uniform float RestLengthVert;
 uniform float RestLengthDiag;
-uniform float DeltaT = 0.000005;
+uniform float DeltaT = 0.00002;
 uniform float DampingConst = 0.1;
 uniform bool hasWind;
 uniform bool hasFlex;
@@ -18,27 +18,30 @@ uniform bool hasShear;
 layout(std430, binding=0) buffer PosIn {
   vec4 PositionIn[];
 };
+
 layout(std430, binding=1) buffer PosOut {
   vec4 PositionOut[];
 };
+
 layout(std430, binding=2) buffer VelIn {
   vec4 VelocityIn[];
 };
+
 layout(std430, binding=3) buffer VelOut {
   vec4 VelocityOut[];
 };
 
-void main() {
-  uvec3 nParticles = gl_NumWorkGroups * gl_WorkGroupSize;
-  uint idx = gl_GlobalInvocationID.y * nParticles.x + gl_GlobalInvocationID.x;
+layout(std430, binding=5) buffer kBuf1 {
+  vec4 kBuffer1[];
+};
 
-  vec3 p = vec3(PositionIn[idx]);
-  vec3 v = vec3(VelocityIn[idx]), r;
+vec3 CalculateForces(vec3 p, vec3 v, uvec3 nParticles, uint idx){
+  //calculate forces to kBuf1 from state
 
   // Start with gravitational acceleration and add the spring
   // forces from each neighbor
   vec3 force = Gravity * ParticleMass;
-
+  vec3 r;
   // Particle above
   if( gl_GlobalInvocationID.y < nParticles.y - 1 ) {
     r = PositionIn[idx + nParticles.x].xyz - p;
@@ -117,11 +120,24 @@ void main() {
   }
   // Apply simple Euler integrator
   vec3 a = force * ParticleInvMass;
+  return a;
+}
+
+void main(){
+  
+  uvec3 nParticles = gl_NumWorkGroups * gl_WorkGroupSize;
+  uint idx = gl_GlobalInvocationID.y * nParticles.x + gl_GlobalInvocationID.x;
+
+  vec3 p = vec3(PositionIn[idx]);
+  vec3 v = vec3(VelocityIn[idx]);
+
+  vec3 a = CalculateForces(p, v, nParticles, idx);
   PositionOut[idx] = vec4(
       p + v * DeltaT, 1.0);
   VelocityOut[idx] = vec4( v + a * DeltaT, 0.0);
+  kBuffer1[idx] = vec4(a, 0.0);
 
-  // Pin a few of the top verts
+
   if( gl_GlobalInvocationID.y == nParticles.y - 1 && 
       (gl_GlobalInvocationID.x == 0 || 
        gl_GlobalInvocationID.x == nParticles.x / 4 ||
@@ -130,5 +146,5 @@ void main() {
        gl_GlobalInvocationID.x == nParticles.x - 1)) {
     PositionOut[idx] = vec4(p,1.0);
     VelocityOut[idx] = vec4(0,0,0,0);
-  }
+    }
 }

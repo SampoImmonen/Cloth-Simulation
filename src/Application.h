@@ -57,6 +57,7 @@ private:
     void init();
     void render();
     void update();
+    void trapezoidIntegrationUpdate();
     void updateShadowMap();
     void terminate();
 
@@ -72,6 +73,7 @@ private:
     //cloth buffer ids
     uint32_t m_posbufs[2];
     uint32_t m_velbufs[2];
+    uint32_t m_kBuffers[2];
     uint32_t m_normBuf, m_elBuf, m_tcBuf;
     uint32_t m_clothVao;
     uint32_t m_numelements;
@@ -89,6 +91,7 @@ private:
     uint32_t m_width = 800, m_height=600;
 
     VertexArray m_vao;
+    std::vector<Shader> m_trapezoidShaders;
     std::vector<Shader> m_shaders;
     std::vector<Shader> m_computeShaders;
 
@@ -105,6 +108,7 @@ private:
     bool m_hasWind = false;
     bool m_renderpoints = false;
     bool m_renderNormals = false;
+    bool m_useTrapezoid = true;
 
     void mouseCallback(GLFWwindow* window, double xpos, double ypos);
     void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);

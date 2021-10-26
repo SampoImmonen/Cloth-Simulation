@@ -86,12 +86,21 @@ void Application::init(){
     m_shaders.push_back(ShadowMapShader);
     Shader NormalVisualizationShader(workindir+"NormalShader.vert", workindir+"NormalShader.frag", workindir+"NormalShader.geo");
     m_shaders.push_back(NormalVisualizationShader);
+    
     //compute shaders
     Shader ClothPositionShader(workindir+"ClothCompute.comp");
     m_computeShaders.push_back(ClothPositionShader);
     Shader ClothNormalShader(workindir+"ClothNormals.comp");
     m_computeShaders.push_back(ClothNormalShader);
     
+    //compute shaders for trapezoid integrator
+    Shader TrapezoidShaderPart1(workindir+"trapezoid_step1.comp");
+    m_trapezoidShaders.push_back(TrapezoidShaderPart1);
+    Shader TrapezoidShaderPart2(workindir+"trapezoid_step2.comp");
+    m_trapezoidShaders.push_back(TrapezoidShaderPart2);
+    Shader TrapezoidShaderPart3(workindir+"trapezoid_step3.comp");
+    m_trapezoidShaders.push_back(TrapezoidShaderPart3);
+
     //init buffers
     initBuffers();
 
@@ -100,6 +109,12 @@ void Application::init(){
     m_computeShaders[0].setUniform1f("RestLengthHoriz", dx);
     m_computeShaders[0].setUniform1f("RestLengthVert", dy);
     m_computeShaders[0].setUniform1f("RestLengthDiag", sqrt(dx*dx+dy*dy));
+
+    for (uint32_t i = 0; i < 3; ++i){
+        m_trapezoidShaders[i].setUniform1f("RestLengthHoriz", dx);
+        m_trapezoidShaders[i].setUniform1f("RestLengthVert", dy);
+        m_trapezoidShaders[i].setUniform1f("RestLengthDiag", sqrt(dx*dx+dy*dy));
+    }
 
     glPointSize(2.0f);
 
@@ -115,31 +130,63 @@ void Application::init(){
     ImGui::StyleColorsDark();
 }
 
-void Application::update(){
+void Application::trapezoidIntegrationUpdate(){
+    //update uniforms
+    for (uint32_t i = 0; i < 2; ++i){
+        m_trapezoidShaders[i].setUniform1f("SpringK", m_stiffness);
+        m_trapezoidShaders[i].setUniform1f("DampingConst", m_dampingConstant);
+        m_trapezoidShaders[i].setUniformVec3("Gravity", m_gravity);
+        m_trapezoidShaders[i].setUniformInt("hasWind", m_hasWind);
+        m_trapezoidShaders[i].setUniformInt("hasShear", m_hasShear);
+        m_trapezoidShaders[i].setUniformInt("hasFlex", m_hasFlex);
+    }
 
-    //set compute shader uniforms
-    m_computeShaders[0].UseProgram();
-
-    //update controllable uniforms
-    m_computeShaders[0].setUniform1f("SpringK", m_stiffness);
-    m_computeShaders[0].setUniform1f("DampingConst", m_dampingConstant);
-    m_computeShaders[0].setUniformVec3("Gravity", m_gravity);
-    m_computeShaders[0].setUniformInt("hasWind", m_hasWind);
-    m_computeShaders[0].setUniformInt("hasShear", m_hasShear);
-    m_computeShaders[0].setUniformInt("hasFlex", m_hasFlex);
-
-    for (int i = 0; i<2000; ++i){
+    for (uint32_t i = 0; i < 500; ++i){
+        m_trapezoidShaders[0].UseProgram();
         glDispatchCompute(m_numParticles.x/10, m_numParticles.y/10, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-        m_readBuf =  1 - m_readBuf;
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_posbufs[m_readBuf]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_posbufs[1-m_readBuf]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_velbufs[m_readBuf]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_velbufs[1-m_readBuf]);
+        m_trapezoidShaders[1].UseProgram();
+        glDispatchCompute(m_numParticles.x/10, m_numParticles.y/10, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
+        m_trapezoidShaders[2].UseProgram();
+        glDispatchCompute(m_numParticles.x/10, m_numParticles.y/10, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     }
-    //update positions
+
+}
+
+void Application::update(){
+
+    if (m_useTrapezoid){
+        trapezoidIntegrationUpdate();
+    }
+    else {
+    //set compute shader uniforms
+        m_computeShaders[0].UseProgram();
+
+        //update controllable uniforms
+        m_computeShaders[0].setUniform1f("SpringK", m_stiffness);
+        m_computeShaders[0].setUniform1f("DampingConst", m_dampingConstant);
+        m_computeShaders[0].setUniformVec3("Gravity", m_gravity);
+        m_computeShaders[0].setUniformInt("hasWind", m_hasWind);
+        m_computeShaders[0].setUniformInt("hasShear", m_hasShear);
+        m_computeShaders[0].setUniformInt("hasFlex", m_hasFlex);
+
+        for (int i = 0; i<2000; ++i){
+            glDispatchCompute(m_numParticles.x/10, m_numParticles.y/10, 1);
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+            m_readBuf =  1 - m_readBuf;
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_posbufs[m_readBuf]);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_posbufs[1-m_readBuf]);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_velbufs[m_readBuf]);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_velbufs[1-m_readBuf]);
+
+        }
+    }
+    //update normals
     m_computeShaders[1].UseProgram();
     glDispatchCompute(m_numParticles.x/10, m_numParticles.y/10, 1);
     glMemoryBarrier( GL_SHADER_STORAGE_BARRIER_BIT );
@@ -198,8 +245,8 @@ void Application::initBuffers(){
     }
 
     //create storage buffers
-    uint32_t buffers[7];
-    glGenBuffers(7, buffers);
+    uint32_t buffers[9];
+    glGenBuffers(9, buffers);
     m_posbufs[0] = buffers[0];
     m_posbufs[1] = buffers[1];
     m_velbufs[0] = buffers[2];
@@ -207,7 +254,8 @@ void Application::initBuffers(){
     m_elBuf = buffers[4];
     m_normBuf = buffers[5];
     m_tcBuf = buffers[6];
-
+    m_kBuffers[0] = buffers[7];
+    m_kBuffers[1] = buffers[8];
 
     uint32_t numParticles = m_numParticles.x*m_numParticles.y;
 
@@ -226,6 +274,14 @@ void Application::initBuffers(){
     //normal buffers
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_normBuf);
     glBufferData(GL_SHADER_STORAGE_BUFFER, numParticles * 4 * sizeof(GLfloat), NULL, GL_DYNAMIC_COPY);
+
+    //slope buffers (acceleration in our case)
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, m_kBuffers[0]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, numParticles*sizeof(glm::vec4), NULL, GL_DYNAMIC_COPY);
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, m_kBuffers[1]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, numParticles*sizeof(glm::vec4), NULL, GL_DYNAMIC_COPY);
+
 
     //index buffer
     glBindBuffer(GL_ARRAY_BUFFER, m_elBuf);
@@ -320,6 +376,7 @@ void Application::render(){
     ImGui::Checkbox("render normals", &m_renderNormals);
     ImGui::Checkbox("Shear Springs", &m_hasShear);
     ImGui::Checkbox("Flex Springs", &m_hasFlex);
+    ImGui::Checkbox("use Trapezoid", &m_useTrapezoid);
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
     m_light.ImGuiControls();
     clothMaterialUI();
