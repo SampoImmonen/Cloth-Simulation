@@ -18,7 +18,10 @@ struct Material {
     float roughness = 0.1f;
     float ao = 1.0f;
 
-    std::unique_ptr<Texture2D> m_texture = nullptr;
+    std::shared_ptr<Texture2D> m_texture = nullptr;
+    std::shared_ptr<Texture2D> m_metallicMap = nullptr;
+    std::shared_ptr<Texture2D> m_roughnessMap = nullptr;
+    std::shared_ptr<Texture2D> m_normalMap = nullptr;
 };
 
 class DirLight {

@@ -77,6 +77,7 @@ in vec3 normal;
 in vec2 texCoords;
 in vec3 fragPos;
 in vec4 fragPosLightSpace;
+in mat3 TBN;
 
 uniform vec3 colordebug;
 uniform float exposure = 1.0f;
@@ -99,8 +100,16 @@ struct Material {
     float ao;
 
     bool hasAlbedo;
-
     sampler2D albedoMap;
+
+	bool hasNormal;
+	sampler2D normalMap;
+
+	bool hasMetallic;
+	sampler2D metallicMap;
+
+	bool hasRoughness;
+	sampler2D roughnessMap;
 };
 
 struct DirLight {
@@ -223,12 +232,12 @@ vec3 CalcDirectionalLight(DirLight light, vec3 N, vec3 V, vec3 F0, SurfaceProper
 	float shadow = 0.0;
 	
     if (light.shadows) {
-		float bias = max(0.05 * (1.0 - dot(N, L)), 0.0);
+		float bias = max(0.05 * (1.0 - dot(normal, L)), 0.0);
 		//bias = 0.0002;
 		shadow = PCSSshadows(fragPosLightSpace, bias, light.shadowMap, light.size);
 	}
 
-	float NdotL = max(dot(N, L), 0.0);
+	float NdotL = max(dot(normal, L), 0.0);
 	return (kD * props.albedo / PI + specular) * radiance*NdotL*(1-shadow);
 }
 
@@ -236,14 +245,23 @@ SurfaceProperties getSurfaceProperties(){
     SurfaceProperties properties;
     if (material.hasAlbedo){
         properties.albedo = pow(texture(material.albedoMap, texCoords).rgb, vec3(2.2));
-		//properties.albedo = vec3(1.0f, 0.0f, 0.0f);
 	}
     else {
         properties.albedo = material.albedo;
     }
+	if (material.hasMetallic){
+        //properties.metallic = pow(texture(material.metallicMap, texCoords).rgb, vec3(2.2));
+	}
+    else {
+        properties.metallic = material.metallic;
+    }
+	if (material.hasRoughness){
+        //properties.roughness = pow(texture(material.roughnessMap, texCoords).rgb, vec3(2.2));
+	}
+    else {
+        properties.roughness = material.roughness;
+    }
 
-    properties.roughness = material.roughness;
-    properties.metallic = material.metallic;
     properties.ao = material.ao;
 
     return properties;
@@ -253,8 +271,14 @@ void main(){
 
     SurfaceProperties props = getSurfaceProperties();
 
+	vec3 N = normalize(normal);
+	if (material.hasNormal){
+		N = texture(material.normalMap, texCoords).rgb;
+		N = normalize(N*2.0-1.0);
+		N = normalize(TBN*N);
+	}
+
     vec3 V = normalize(viewPos-fragPos);
-    vec3 N = normalize(normal);
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, props.albedo, props.metallic);
 	vec3 L0 = vec3(0.0);

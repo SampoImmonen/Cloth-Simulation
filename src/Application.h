@@ -14,6 +14,7 @@
 #include "Camera.h"
 #include "Texture2D.h"
 #include "Shading.h"
+#include "FileExplorer.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"

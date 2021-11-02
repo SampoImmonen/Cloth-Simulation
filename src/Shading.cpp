@@ -23,8 +23,6 @@ void DirLight::ImGuiControls(){
     }
 }
 
-
-
 glm::mat4 DirLight::getLightSpaceMatrix(){
     float near_plane = 0.1f, far_plane = 100.0f;
     glm::mat4 projection = glm::ortho<float>(-20.0f, 20.0f, -20.0f, 20.0f, near_plane, far_plane);

@@ -26,10 +26,10 @@ Application* Application::GLFWCallbackWrapper::s_application = nullptr;
 
 
 const std::vector<Vertex> tri_vertices = {
-    {glm::vec3(-5.0f, -1.0f, 5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 1.0f)},
-    {glm::vec3(-5.0f, -1.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(1.0f, 1.0f)},
-    {glm::vec3(5.0f, -1.0f, 5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f)},
-    {glm::vec3(5.0f, -1.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(1.0f, 0.0f)},
+    {glm::vec3(-5.0f, -1.0f, 5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f)},
+    {glm::vec3(-5.0f, -1.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(1.0f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f)},
+    {glm::vec3(5.0f, -1.0f, 5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f)},
+    {glm::vec3(5.0f, -1.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f)}
 };
 
 const std::vector<uint32_t> tri_indices = {
@@ -120,8 +120,10 @@ void Application::init(){
 
     m_light = DirLight(glm::vec3(1.0f));
 
-    m_clothMaterial.m_texture = std::make_unique<Texture2D>(Texture2D(texturedir+"texture.jpg"));
-    m_clothtexture = Texture2D(texturedir+"texture.jpg");
+    m_clothMaterial.m_texture = std::make_shared<Texture2D>(Texture2D(texturedir+"texture.jpg"));
+    //m_clothtexture = Texture2D(texturedir+"texture.jpg");
+    m_planeMaterial.m_texture = std::make_shared<Texture2D>(Texture2D(texturedir+"brickwall.jpg"));
+    m_planeMaterial.m_normalMap = std::make_shared<Texture2D>(Texture2D(texturedir+"brickwall_normal.jpg"));
     //imgui
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -356,8 +358,6 @@ void Application::render(){
         glDrawElements(GL_TRIANGLES, m_numelements, GL_UNSIGNED_INT, 0);
     }
 
-    glBindVertexArray(0);
-    
     m_shaders[1].setUniformMat4f("lightSpaceMatrix", m_light.getLightSpaceMatrix());
     setMaterialUniforms(m_planeMaterial);
     m_vao.drawElements();
@@ -482,9 +482,24 @@ void Application::setMaterialUniforms(const Material& material){
     m_shaders[1].setUniformInt("material.hasAlbedo", hasTexture);
     if (hasTexture){
         m_shaders[1].setUniformInt("material.albedoMap", 0);
-        m_clothtexture.bind(0);
-        //m_clothMaterial.m_texture->bind(0);
+        //m_clothtexture.bind(0)
+        material.m_texture->bind(0);
     }
+    bool hasNormalMap = (material.m_normalMap!=nullptr);
+    m_shaders[1].setUniformInt("material.hasNormal", hasNormalMap);
+    if (hasNormalMap)
+    {
+        m_shaders[1].setUniformInt("material.normalMap", 2);
+        material.m_normalMap->bind(2);
+    }
+    bool hasRoughnessMap = (material.m_roughnessMap!=nullptr);
+    m_shaders[1].setUniformInt("material.hasRoughness", hasRoughnessMap);
+    if (hasRoughnessMap){
+        m_shaders[1].setUniformInt("material.roughnessMap", 3);
+        //m_clothtexture.bind(0)
+        material.m_roughnessMap->bind(3);
+    }
+
 }
 
 void Application::clothMaterialUI(){
@@ -497,6 +512,16 @@ void Application::clothMaterialUI(){
 
     if (ImGui::CollapsingHeader("Plane Material")){
         ImGui::InputFloat3("plane albedo", &m_planeMaterial.albedo[0]);
+        unsigned int albedoID = m_planeMaterial.m_texture->getTextureID();
+        if (ImGui::ImageButton((void*)(intptr_t)albedoID, ImVec2(50, 50), ImVec2(0, 1), ImVec2(1, 0))){
+            std::string albedoName = FileExplorer::openFile();
+            albedoName.pop_back();
+            m_planeMaterial.m_texture = std::make_shared<Texture2D>(Texture2D(albedoName));
+        }
+        unsigned int normalID = m_planeMaterial.m_normalMap->getTextureID();
+        if (ImGui::ImageButton((void*)(intptr_t)normalID, ImVec2(50, 50), ImVec2(0, 1), ImVec2(1, 0))){
+            std::cout << "change normal\n";
+        }
         ImGui::InputFloat("plane metallic", &m_planeMaterial.metallic);
         ImGui::InputFloat("plane roughness", &m_planeMaterial.roughness);
         ImGui::InputFloat("plane ao", &m_planeMaterial.ao);

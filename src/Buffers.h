@@ -9,8 +9,9 @@ struct Vertex{
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec2 texCoords;
+    glm::vec3 tangent;
 
-    Vertex(const glm::vec3& pos, const glm::vec3& normal, const glm::vec2& tex): position(pos), normal(normal), texCoords(tex){}
+    Vertex(const glm::vec3& pos, const glm::vec3& normal, const glm::vec2& tex, const glm::vec3& tangent): position(pos), normal(normal), texCoords(tex), tangent(tangent){}
 };
 
 class VertexBuffer{
