@@ -24,6 +24,21 @@ struct Material {
     std::shared_ptr<Texture2D> m_normalMap = nullptr;
 };
 
+
+inline uint32_t getAlbedoID(const Material& material){
+    if (material.m_texture!=nullptr){
+        return material.m_texture->getTextureID();
+    }
+    return 0;
+}
+
+inline uint32_t getNormalID(const Material& material){
+    if (material.m_normalMap!=nullptr){
+        return material.m_normalMap->getTextureID();
+    }
+    return 0;
+}
+
 class DirLight {
 public:
     DirLight() = default;

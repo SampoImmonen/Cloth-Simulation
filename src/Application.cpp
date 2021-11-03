@@ -482,7 +482,6 @@ void Application::setMaterialUniforms(const Material& material){
     m_shaders[1].setUniformInt("material.hasAlbedo", hasTexture);
     if (hasTexture){
         m_shaders[1].setUniformInt("material.albedoMap", 0);
-        //m_clothtexture.bind(0)
         material.m_texture->bind(0);
     }
     bool hasNormalMap = (material.m_normalMap!=nullptr);
@@ -492,36 +491,53 @@ void Application::setMaterialUniforms(const Material& material){
         m_shaders[1].setUniformInt("material.normalMap", 2);
         material.m_normalMap->bind(2);
     }
-    bool hasRoughnessMap = (material.m_roughnessMap!=nullptr);
-    m_shaders[1].setUniformInt("material.hasRoughness", hasRoughnessMap);
-    if (hasRoughnessMap){
-        m_shaders[1].setUniformInt("material.roughnessMap", 3);
-        //m_clothtexture.bind(0)
-        material.m_roughnessMap->bind(3);
-    }
-
 }
 
 void Application::clothMaterialUI(){
     if (ImGui::CollapsingHeader("Cloth Material")){
-        ImGui::InputFloat3("cloth albedo", &m_clothMaterial.albedo[0]);
+        ImGui::ColorEdit3("cloth albedo", &m_clothMaterial.albedo[0]);
+        unsigned int clothAlbedoID = getAlbedoID(m_clothMaterial);
+        if (ImGui::ImageButton((void*)(intptr_t)clothAlbedoID, ImVec2(50, 50), ImVec2(0, 1), ImVec2(1, 0))){
+            std::string albedoName = FileExplorer::openFile();
+            if (albedoName.length() > 8){
+                albedoName.pop_back();
+                m_clothMaterial.m_texture = std::make_shared<Texture2D>(Texture2D(albedoName));
+            }
+        }
+        if (ImGui::Button("delete albedo")){
+            m_clothMaterial.m_texture.reset();
+        }
         ImGui::InputFloat("cloth metallic", &m_clothMaterial.metallic);
         ImGui::InputFloat("cloth roughness", &m_clothMaterial.roughness);
         ImGui::InputFloat("cloth ao", &m_clothMaterial.ao);
     }
 
     if (ImGui::CollapsingHeader("Plane Material")){
-        ImGui::InputFloat3("plane albedo", &m_planeMaterial.albedo[0]);
-        unsigned int albedoID = m_planeMaterial.m_texture->getTextureID();
+        ImGui::ColorEdit3("plane albedo", &m_planeMaterial.albedo[0]);
+        unsigned int albedoID = getAlbedoID(m_planeMaterial);
         if (ImGui::ImageButton((void*)(intptr_t)albedoID, ImVec2(50, 50), ImVec2(0, 1), ImVec2(1, 0))){
             std::string albedoName = FileExplorer::openFile();
-            albedoName.pop_back();
-            m_planeMaterial.m_texture = std::make_shared<Texture2D>(Texture2D(albedoName));
+            if (albedoName.length() > 8){
+                albedoName.pop_back();
+                m_planeMaterial.m_texture = std::make_shared<Texture2D>(Texture2D(albedoName));
+            }
         }
-        unsigned int normalID = m_planeMaterial.m_normalMap->getTextureID();
+        if (ImGui::Button("Delete albedo")){
+            m_planeMaterial.m_texture.reset();
+        }
+
+        unsigned int normalID = getNormalID(m_planeMaterial);
         if (ImGui::ImageButton((void*)(intptr_t)normalID, ImVec2(50, 50), ImVec2(0, 1), ImVec2(1, 0))){
-            std::cout << "change normal\n";
+            std::string normalName = FileExplorer::openFile();
+            if (normalName.length() > 8){
+                normalName.pop_back();
+                m_planeMaterial.m_normalMap = std::make_shared<Texture2D>(Texture2D(normalName));
+            }
         }
+        if (ImGui::Button("Delete normal")){
+            m_planeMaterial.m_normalMap.reset();
+        }
+
         ImGui::InputFloat("plane metallic", &m_planeMaterial.metallic);
         ImGui::InputFloat("plane roughness", &m_planeMaterial.roughness);
         ImGui::InputFloat("plane ao", &m_planeMaterial.ao);
