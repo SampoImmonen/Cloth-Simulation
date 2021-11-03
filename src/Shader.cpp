@@ -53,6 +53,7 @@ Shader::Shader(const std::string& cpath){
 
 Shader::~Shader()
 {
+	//glDeleteProgram(program);
 }
 
 void Shader::UseProgram()

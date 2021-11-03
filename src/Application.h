@@ -45,6 +45,7 @@ struct MouseInfo {
 	bool firstMouse = true;
 	//window coordinates
 	float lastX, lastY;
+    float deltaX, deltaY;
 	//imGui scene viewport coordinates
 	float ImlastX, ImlastY;
 };

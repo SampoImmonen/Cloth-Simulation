@@ -335,8 +335,7 @@ void Application::render(){
     m_shaders[1].setUniformMat4f("view", view);
     m_shaders[1].setUniformMat4f("projection", projection);
     m_shaders[1].setUniformMat4f("model", glm::mat4(1.0f));
-    m_shaders[1].setUniformInt("Tex", 0);
-    m_clothtexture.bind(0);
+    //m_clothtexture.bind(0);
     glBindVertexArray(m_clothVao);
     
     if (m_renderpoints){
@@ -418,6 +417,9 @@ void Application::mouseCallback(GLFWwindow* window, double xpos, double ypos)
 	m_camera.ProcessMouseMovement(xpos - m_mouseinfo.lastX, m_mouseinfo.lastY - ypos);
 	m_mouseinfo.lastX = xpos;
 	m_mouseinfo.lastY = ypos;
+
+    m_mouseinfo.deltaX = xpos-m_mouseinfo.lastX;
+    m_mouseinfo.deltaX = ypos-m_mouseinfo.lastY;
 }
 
 void Application::scrollCallback(GLFWwindow* window, double xoffset, double yoffset)
@@ -546,6 +548,7 @@ void Application::clothMaterialUI(){
 
 
 void Application::terminate(){
+
     glfwTerminate();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();

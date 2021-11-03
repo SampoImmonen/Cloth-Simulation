@@ -131,3 +131,21 @@ private:
         Up = glm::normalize(glm::cross(Right, Front));
     }
 };
+
+
+class EditorCamera{
+public:
+    EditorCamera() = default;
+private:
+    
+    glm::mat4 m_viewMatrix;
+    glm::mat4 m_projectionMatrix;
+    glm::vec3 m_focalPoint = glm::vec3(0.0f);
+    glm::vec3 m_position = glm::vec3(0.0f);
+    glm::vec2 m_initialMousePosition = glm::vec2(0.0f);    
+
+    float m_pitch = 0.0f;
+    float m_yaw = -90.0f;
+    float m_distance = 10.0f;
+
+};
