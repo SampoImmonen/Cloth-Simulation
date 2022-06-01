@@ -17,7 +17,7 @@ std::string FileExplorer::saveFile() {
 // Windows version of file explorer
 std::string FileExplorer::openFile() {
   // not implemented
-  return std::string(filename);
+  return std::string();
 }
 
 std::string FileExplorer::saveFile() {
