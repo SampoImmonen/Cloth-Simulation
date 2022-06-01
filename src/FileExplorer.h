@@ -1,11 +1,11 @@
 #pragma once
 
+#include <stdio.h>
 #include <iostream>
 #include <string>
-#include <stdio.h>
 
-class FileExplorer{
-public:
-    static std::string openFile();
-    static std::string saveFile();
+class FileExplorer {
+ public:
+  static std::string openFile();
+  static std::string saveFile();
 };
